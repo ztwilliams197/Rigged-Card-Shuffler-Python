@@ -23,12 +23,14 @@ def shuffle_cards(cards):
     return cards
 
 def write_fixture(file, cards, num_cards):
+    used = []
     for i in range(num_cards):
         rand = random.randint(0,len(cards)-1)
-        file.write(cards[rand][0]+","+cards[rand][1])
+        while(rand in used):
+            rand = random.randint(0,len(cards)-1)
+        file.write(cards[rand][0]+","+cards[rand][1]+","+str(rand))
         if i != num_cards - 1:
             file.write(";")
-        cards.pop(rand)
 
 def main():
     '''
