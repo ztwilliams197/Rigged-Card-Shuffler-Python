@@ -1,0 +1,1 @@
+7,C;Q,C;J,D;3,C;6,C;9,D;A,D;A,S;K,C;9,S;6,H;Q,S;4,H;J,H;K,D;4,D;K,S;7,H;X,H;8,C;J,S;6,S;4,C;8,H;A,H;9,H;X,C;2,C;X,D;5,H;K,H;2,S;5,D;3,H;3,S;5,C;J,C;8,S;4,S;Q,H;7,D;9,C;6,D;A,C;Q,D;8,D;2,D;5,S;X,S;7,S;2,H;3,D
