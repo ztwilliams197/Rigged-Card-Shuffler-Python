@@ -32,13 +32,13 @@ def read_order(filepath):
 def shuffle_deck(cards):
     deck = gen_card_list()
     known_cards = [(card[0],card[1]) for card in cards]
-    print(known_cards)
+    #print(known_cards)
     for card in known_cards:
         if card in deck:
             deck.remove(card)
     deck = shuffle_cards(deck)
     for card in cards:
-        print(card)
+    #    print(card)
         deck.insert(int(card[2]),(card[0],card[1]))
     return deck
 
