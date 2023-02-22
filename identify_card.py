@@ -1,28 +1,46 @@
-from typing import Tuple, List
+from __future__ import annotations
+
+from typing import Tuple, List, Callable, TypeVar, Generic, Optional
 import numpy as np
 import scipy.ndimage as img_filter
-import cv2
+
+N = TypeVar('N', int, float)
+Image = np.ndarray
 
 
-# noinspection PyShadowingNames
-def _load_image(path, scale=None):
-    img = cv2.imread(path)
-    if scale is not None:
-        img = cv2.resize(img, scale)
-    # returns [y, u, v] -- indexed in 3rd dimension [:,:, ??]
-    return cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+class BoundingBox(Generic[N], Tuple[N, N, N, N]):
+    @staticmethod
+    def of(x1: N, y1: N, x2: N, y2: N) -> BoundingBox[N]:
+        assert x1 <= x2 and y1 <= y2, "Invalid b-box coordinates"
+        return BoundingBox((x1, y1, x2, y2))
+
+    @staticmethod
+    def hull(bboxes: List[BoundingBox[N]]) -> Optional[BoundingBox[N]]:
+        if len(bboxes) == 0:
+            return None
+        x1, y1, x2, y2 = bboxes[0]
+        for a1, b1, a2, b2 in bboxes:
+            x1 = min(x1, a1)
+            y1 = min(y1, b1)
+            x2 = max(x2, a2)
+            y2 = max(y2, b2)
+        return BoundingBox.of(x1, y1, x2, y2)
 
 
-# noinspection PyShadowingNames
-def _increase_contrast(img: np.ndarray, *, threshold=0.5):
+def _increase_contrast(img: Image, *, threshold=0.5):
     img = np.copy(img)
     img[img < threshold * 255] = 0
     img[img >= threshold * 255] = 255
     return img
 
 
-# noinspection PyShadowingNames
-def _get_edges(img: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _denoise_image(img: Image) -> Image:
+    # img arg is dimensions h x w x 3 -- yuv for last dimension
+    y = img[:, :, 0]
+    return _increase_contrast(y, threshold=0.7)
+
+
+def _get_edges(img: Image) -> Tuple[Image, Image, Image, Image]:
     x1 = img_filter.sobel(img, axis=0)
     x2 = img_filter.sobel(-img, axis=0)
     y1 = img_filter.sobel(img, axis=1)
@@ -30,16 +48,14 @@ def _get_edges(img: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.
     return x1, x2, y1, y2
 
 
-# noinspection PyShadowingNames
-def _filter_edges(img: np.ndarray) -> np.ndarray:
+def _filter_edges(img: Image) -> Image:
     x1, x2, y1, y2 = _get_edges(img)
     out = np.copy(img) * 0
     out[np.logical_or(np.logical_or(x1 > 0, x2 > 0), np.logical_or(y1 > 0, y2 > 0))] = 255
     return out
 
 
-# noinspection PyShadowingNames
-def _get_bounding_boxes(img: np.ndarray) -> List[Tuple[int, int, int, int]]:
+def _get_bounding_boxes(img: Image) -> List[BoundingBox[int]]:
     # pre-req: input is full black/white contrast
     img = img > 127
     coords = np.where(img)
@@ -83,57 +99,48 @@ def _get_bounding_boxes(img: np.ndarray) -> List[Tuple[int, int, int, int]]:
         cy = [y for _, y in group]
         temp_ret.append((int(min(cx)), int(min(cy)), int(max(cx)), int(max(cy))))
 
-    ret = []
-    for x1, y1, x2, y2 in temp_ret:
-        keep = True
-        for _x1, _y1, _x2, _y2 in temp_ret:
-            if x1 == _x1 and y1 == _y1 and x2 == _x2 and y2 == _y2:
-                continue
-            if _x1 <= x1 <= x2 <= _x2 and _y1 <= y1 <= y2 <= _y2:
-                keep = False
-                break
-        if keep:
-            ret.append((x1, y1, x2, y2))
-    return ret
+    # # exclude boxes inside other boxes
+    # ret = []
+    # for x1, y1, x2, y2 in temp_ret:
+    #     keep = True
+    #     for _x1, _y1, _x2, _y2 in temp_ret:
+    #         if x1 == _x1 and y1 == _y1 and x2 == _x2 and y2 == _y2:
+    #             continue
+    #         if _x1 <= x1 <= x2 <= _x2 and _y1 <= y1 <= y2 <= _y2:
+    #             keep = False
+    #             break
+    #     if keep:
+    #         ret.append(BoundingBox.of(x1, y1, x2, y2))
+    # return ret
+    return [BoundingBox.of(x1, y1, x2, y2) for x1, y1, x2, y2 in temp_ret]
 
 
-# noinspection PyShadowingNames
-def preprocess_image(img: np.ndarray) -> Tuple[np.ndarray, List[Tuple[int, int, int, int]]]:
-    # img arg is dimensions h x w x 3 -- yuv for last dimension
-    y = img[:, :, 0]
-    y_contr = _increase_contrast(y, threshold=0.7)
-    edges = _filter_edges(y_contr)
-
+def preprocess_image(img: Image) -> Tuple[Image, List[BoundingBox[int]]]:
+    edges = _filter_edges(_denoise_image(img))
     return edges, _get_bounding_boxes(edges)
 
 
-# noinspection PyShadowingNames
-def _add_bounding_boxes_to_image(img: np.ndarray, bboxes: List[Tuple[int, int, int, int]]) -> np.ndarray:
-    r, g, b = np.copy(img), np.copy(img), np.copy(img)
-
-    def _bound(b1, b2):
-        low = min(b1, b2)
-        high = max(b1, b2)
-        return range(low, high + 1)
-
-    def _set_red(_r, _g, _b, _x, _y):
-        _r[_x, _y] = 255
-        _g[_x, _y] = 0
-        _b[_x, _y] = 0
-
-    for x1, y1, x2, y2 in bboxes:
-        for x in _bound(x1, x2):
-            _set_red(r, g, b, x, y1)
-            _set_red(r, g, b, x, y2)
-        for y in _bound(y1, y2):
-            _set_red(r, g, b, x1, y)
-            _set_red(r, g, b, x2, y)
-
-    return cv2.merge((b, g, r))
+Card = Tuple[str, str]  # rank, suit
+CoordinateMapperFunc = Callable[[float, float], Tuple[float, float]]
+ImageComparisonData = Tuple[Image, List[BoundingBox[float]], CoordinateMapperFunc]
 
 
-if __name__ == '__main__':
-    img = _load_image('cards2.png')
-    img, bboxes = preprocess_image(img)
-    img = _add_bounding_boxes_to_image(img, bboxes)
-    cv2.imwrite('bounding_boxes.png', img)
+def _normalize_bboxes(bboxes: List[BoundingBox[int]]) -> Tuple[List[BoundingBox[float]], CoordinateMapperFunc]:
+    bbox_hull = BoundingBox.hull(bboxes)
+    if bbox_hull is None:
+        return [], lambda x, y: (x, y)
+
+    x1, y1, x2, y2 = bbox_hull
+    return [
+               BoundingBox.of(
+                   (a1 - x1) / (x2 - x1),
+                   (b1 - y1) / (y2 - y1),
+                   (a2 - x1) / (x2 - x1),
+                   (b2 - y1) / (y2 - y1),
+               )
+               for a1, b1, a2, b2 in bboxes
+           ], lambda x, y: ((x2 - x1) * x + x1, (y2 - y1) * y + y1)
+
+
+def identify_card(edges: Image, bboxes: List[BoundingBox[int]]) -> Card:
+    pass
