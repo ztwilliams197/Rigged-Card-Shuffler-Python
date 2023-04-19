@@ -3,6 +3,7 @@ from typing import Tuple, Union, Optional
 import serial
 
 def init_uart(baud_rate: int) -> serial.serialposix.Serial:
+    print("Init'ing UART")
     return serial.Serial("/dev/ttyS0", 9600)
 
 def write_string(ser: serial.serialposix.Serial, msg: str):
@@ -10,6 +11,15 @@ def write_string(ser: serial.serialposix.Serial, msg: str):
 
 def tx(ser: serial.serialposix.Serial, packet: int):
     ser.write(packet.to_bytes(1, 'little'))
+    print(f"TX'd {packet.to_bytes(1, 'little')}")
+
+def rx(ser: serial.serialposix.Serial):
+    if(ser.in_waiting > 0):
+       packet = ser.read(1)
+       print(f"RX'd {packet}")
+       return ser.read(1)
+    else:
+       return None
 
 class RxActions(Enum):
     RESET = "RESET system -- also used as wake message"
