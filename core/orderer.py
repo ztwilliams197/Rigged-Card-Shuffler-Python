@@ -1,6 +1,48 @@
 from abc import ABC, abstractmethod
-from typing import List, Any, Dict
+from typing import List, Any, Dict, TypeVar
+import random
+
 from identify_card import Card
+
+_ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "X", "J", "Q", "K"]
+_suits = ["C", "H", "S", "D"]
+
+_T = TypeVar('_T')
+
+
+def _gen_card_list() -> List[Card]:
+    cards = []
+    for rank in _ranks:
+        for suit in _suits:
+            cards.append((rank, suit))
+    return cards
+
+
+# noinspection PyShadowingBuiltins
+def _shuffle(list: List[_T]) -> List[_T]:
+    for i in range(len(list)):
+        j = random.randrange(i, len(list))
+        if i != j:
+            list[i], list[j] = list[j], list[i]
+    return list
+
+
+def _compute_shuffled_deck(card_spec: Dict[Card, int], *, verbose: bool = False) -> Dict[Card, int]:
+    deck = set(_gen_card_list())
+    known_cards = set(card_spec)
+    deck = _shuffle(list(deck.difference(known_cards)))
+
+    if verbose:
+        print(deck)
+
+    card_spec_ordered = list((card, pos) for card, pos in card_spec.items())
+    card_spec_ordered.sort(key=lambda spec: spec[1])
+    for card, pos in card_spec_ordered:
+        if verbose:
+            print(f"Placed card {card} into pos {pos}")
+        deck.insert(pos, card)
+
+    return {card: pos for pos, card in enumerate(deck)}
 
 
 class OrderGenerator(ABC):
@@ -14,17 +56,19 @@ class OrderGenerator(ABC):
         else:
             # switch/case for different game handlers
             if value == 'blackjack':
-                _impl = _BlackJackGenerator()
+                OrderGenerator._impl = _BlackJackGenerator()
+            elif value == 'none' or value == 'random' or value == 'shuffle':
+                OrderGenerator._impl = _RandomShuffleGenerator()
             else:
                 assert False, f"Unrecognized game: {value}"
 
     @staticmethod
     def generate_order() -> Dict[Card, int]:
         # noinspection PyProtectedMember
-        return OrderGenerator._impl._generate_order()
+        return _compute_shuffled_deck(OrderGenerator._impl._generate_order())
 
     @abstractmethod
-    def _generate_order(self) -> Dict[Card, int]:
+    def _generate_fixed_points(self) -> Dict[Card, int]:
         pass
 
     @abstractmethod
@@ -67,5 +111,25 @@ class _BlackJackGenerator(OrderGenerator):
         else:
             assert False, f"Unrecognized config key {key}"
 
-    def _generate_order(self) -> Dict[Card, int]:
+    def _generate_fixed_points(self) -> Dict[Card, int]:
         pass
+
+
+class _RandomShuffleGenerator(OrderGenerator):
+    fixed_points: Dict[Card, int]
+
+    def __init__(self):
+        self.fixed_points = {}
+
+    def _reconfigure(self, key: str, value: str) -> None:
+        # (R,S)
+        rank, suit = key.split(',')
+        card = rank[1:], suit[:-1]
+        self.fixed_points[card] = int(value)
+        # TODO error checking
+
+    def _generate_fixed_points(self) -> Dict[Card, int]:
+        return self.fixed_points
+
+
+OrderGenerator._impl = _RandomShuffleGenerator()
