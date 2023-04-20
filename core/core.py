@@ -1,6 +1,8 @@
 import sys
 
 from uart import UART, TxActions, RxActions
+import identify_card as cv
+from orderer import OrderGenerator
 
 
 def noop(*args):
@@ -12,18 +14,16 @@ _dbprint = noop
 _string_buffer: str = ""
 
 
-def _build_string(char: str, *, delay_update: bool = False) -> None:
+def _build_string(char: str) -> None:
     global _string_buffer
     if char != '\0':
         _string_buffer += char
     else:
-        # TODO process string built in buffer (settings_buffer)
+        _dbprint(f"Built config string \"{_string_buffer}\"")
         # format for each string is "<field>:<value>", where <field>
-        # and <value> are only `[a-zA-Z0-9]+`, and the delimiter is ':'
-        # i.e., process_str(_string_buffer, delay_update)
-        # NTS delay_update means to keep old config for processing duration and push updates post shuffle
-        #  - can either be impl with update() func or by caching processing state during shuffle??
-        _dbprint(f"Built config string \"{_string_buffer}\", WITH{'' if delay_update else 'OUT'} propagation delay")
+        # and <value> are only `[^:]*`, and the delimiter is ':'
+        key, value = _string_buffer.split(":")
+        OrderGenerator.reconfigure(key, value)
         _string_buffer = ""  # clear buffer
 
 
@@ -32,7 +32,7 @@ class _SystemReset(Exception):
 
 
 # noinspection PyShadowingNames
-def _exec_logic(uart: UART) -> None:
+def _exec_logic(uart: UART, verbose_cv: bool) -> None:
     _dbprint("Starting execution loop")
 
     # wake/reset handshake
@@ -63,6 +63,7 @@ def _exec_logic(uart: UART) -> None:
     # NTS webserver/START_SHUFFLE_SBC would go here as well (stretch goal #1)
 
     # shuffle process
+    target_order = OrderGenerator.generate_order()
     # this should be the index of the NEXT expected.
     # the count the mcu sends should be the number TO BE processed (ie sbc_count==mcu_count)
     _dbprint("Starting card processing")
@@ -73,7 +74,7 @@ def _exec_logic(uart: UART) -> None:
                 if action == RxActions.RESET:
                     raise _SystemReset("@ loop for card recognition/processing")
                 if action == RxActions.RX_STRING:
-                    _build_string(data, delay_update=True)
+                    _build_string(data)
                 action, data = uart.rx_blocking()
             if data != i:
                 _dbprint("Received image capture clearance, but index/key is out of sync... Retrying handshake...")
@@ -83,18 +84,23 @@ def _exec_logic(uart: UART) -> None:
                 break
 
         # this slot should be RELATIVE slots not ABSOLUTE slot. MCU is responsible for translating from R to A
-        slot, card = 0, ('X', 'X')  # TODO call identifySlot() (i.e., card recognition)
+        img = None  # TODO capture image from camera
+        edges, bboxes = cv.preprocess_image(img, verbose=verbose_cv)
+        card, score_map = cv.identify_card(edges, bboxes, verbose=verbose_cv)  # TODO use score_map for card corrections
+        slot = target_order[card]
         _dbprint(f"Identified current (index={i}) card as (card={card[0]}{card[1]}) to be placed into (slot={slot})")
         uart.tx(TxActions.IDENTIFY_SLOT, slot)
-        # NTS store card location corrections here (stretch goal #3)
+        # NTS store card location corrections here (stretch goal #2)
     _dbprint("Card processing complete")
 
-    # NTS send all card location corrections here (stretch goal #3) via
+    # NTS send all card location corrections here (stretch goal #2) via
     #  uart.tx(TxActions.REINDEX_SLOT, ...) & uart.tx(TxActions.IDENTIFY_SLOT, ...) packets
     _dbprint("Finishing execution loop")
 
 
 if __name__ == '__main__':
+    verbose_cv: bool = False
+
     if len(sys.argv) == 3:
         if sys.argv[1] != '-v':
             print("Second argument must be exactly `-v`")
@@ -105,7 +111,7 @@ if __name__ == '__main__':
         if 'U' in flags or 'u' in flags:
             UART.verbose = True
         if 'C' in flags or 'c' in flags:
-            pass  # TODO configure card recognition verbosity
+            verbose_cv = True
     elif len(sys.argv) != 1:
         print(f"{sys.argv[0]} takes either 0 or 2 arguments only")
         print("0 args: Normal operation")
@@ -118,7 +124,7 @@ if __name__ == '__main__':
 
     while True:
         try:
-            _exec_logic(uart)
+            _exec_logic(uart, verbose_cv)
         except _SystemReset as e:
             _dbprint(e)
             pass
