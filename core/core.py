@@ -1,9 +1,12 @@
 import sys
 from time import sleep
+from typing import Callable
 
 from uart import UART, TxActions, RxActions
 import identify_card as cv
+from identify_card import Image
 from orderer import OrderGenerator
+from camera import init_camera
 
 
 def noop(*args):
@@ -33,7 +36,7 @@ class _SystemReset(Exception):
 
 
 # noinspection PyShadowingNames
-def _exec_logic(uart: UART, verbose_cv: bool) -> None:
+def _exec_logic(uart: UART, image_fetcher: Callable[[], Image], verbose_cv: bool) -> None:
     _dbprint("Starting execution loop")
 
     # wake/reset handshake
@@ -88,7 +91,7 @@ def _exec_logic(uart: UART, verbose_cv: bool) -> None:
                 break
 
         # this slot should be RELATIVE slots not ABSOLUTE slot. MCU is responsible for translating from R to A
-        img = None  # TODO capture image from camera
+        img = image_fetcher()
         edges, bboxes = cv.preprocess_image(img, verbose=verbose_cv)
         card, score_map = cv.identify_card(edges, bboxes, verbose=verbose_cv)  # TODO use score_map for card corrections
         slot = target_order[card]
@@ -125,10 +128,12 @@ if __name__ == '__main__':
         sys.exit(1)
 
     uart = UART(baud_rate=9600)
+    # TODO import ground truth image library with cv.populate_ground_truth
+    image_fetcher = init_camera()
 
     while True:
         try:
-            _exec_logic(uart, verbose_cv)
+            _exec_logic(uart, image_fetcher, verbose_cv)
         except _SystemReset as e:
             _dbprint(e)
             pass
