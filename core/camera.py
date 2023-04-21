@@ -8,7 +8,7 @@ import cv2
 from identify_card import Image
 
 _CAMERA_RESOLUTION: Final[Tuple[int, int]] = 1024, 1008
-_CROP_BOUNDS: Final[Tuple[int, int, int, int]] = 460, 331, 676, 690  # x1, y1, x2, y2
+_CROP_BOUNDS: Final[Tuple[int, int, int, int]] = 481, 257, 716, 636  # x1, y1, x2, y2
 
 
 def init_camera() -> Callable[[], Image]:
