@@ -1,12 +1,13 @@
 import sys
 from time import sleep
-from typing import Callable
+from typing import Callable, List
 
 from uart import UART, TxActions, RxActions
 import identify_card as cv
 from identify_card import Image
 from orderer import OrderGenerator
 from camera import init_camera
+from webserver import start_webserver
 
 
 def noop(*args):
@@ -27,8 +28,23 @@ def _build_string(char: str) -> None:
         # format for each string is "<field>:<value>", where <field>
         # and <value> are only `[^:]*`, and the delimiter is ':'
         key, value = _string_buffer.split(":")
-        OrderGenerator.reconfigure(key, value)
+        OrderGenerator.reconfigure(key, value, mcu=True)
         _string_buffer = ""  # clear buffer
+
+
+_use_sbc_config: bool = False
+
+
+def _handle_webserver_config(configs: List[str]) -> None:
+    # noinspection PyBroadException
+    try:
+        global _use_sbc_config
+        for cfg in configs:
+            key, value = cfg.split(':')
+            OrderGenerator.reconfigure(key, value, mcu=False)
+        _use_sbc_config = True
+    except Exception:
+        pass
 
 
 class _SystemReset(Exception):
@@ -37,6 +53,11 @@ class _SystemReset(Exception):
 
 # noinspection PyShadowingNames
 def _exec_logic(uart: UART, image_fetcher: Callable[[], Image], verbose_cv: bool) -> None:
+    # reset global flags
+    global _use_sbc_config
+    _use_sbc_config = False
+    # TODO decide whether to reset config trackers in OrderGenerator
+
     _dbprint("Starting execution loop")
 
     # wake/reset handshake
@@ -55,22 +76,49 @@ def _exec_logic(uart: UART, image_fetcher: Callable[[], Image], verbose_cv: bool
 
     # get user settings
     _dbprint("Waiting for MCU start and/or settings")
-    while True:
-        action, char = uart.rx_blocking()
-        if action == RxActions.RX_STRING:
-            _build_string(char)
-        elif action == RxActions.START_SHUFFLE_MCU:
-            break
-        elif action == RxActions.RESET:
-            raise _SystemReset("@ loop for settings/start wait")
-    _dbprint("Starting card processing with µC settings")
+    while not _use_sbc_config:  # bypass config stuff if we are using RasPi configs
+        packet = uart.rx()
+        if packet is not None:
+            action, char = packet
+            if action == RxActions.RX_STRING:
+                _build_string(char)
+            elif action == RxActions.START_SHUFFLE_MCU:
+                break
+            elif action == RxActions.RESET:
+                raise _SystemReset("@ loop for settings/start wait")
+        else:
+            sleep(0.001)
 
-    # send start ack
-    uart.tx(TxActions.START_SHUFFLE_MCU)
-    # NTS webserver/START_SHUFFLE_SBC would go here as well (stretch goal #1)
+    if _use_sbc_config:
+        _dbprint("Requesting µC for card processing with RasPi/webserver settings")
+        while True:
+            uart.tx(TxActions.START_SHUFFLE_SBC)
+            response = uart.rx_timeout()
+            if response is not None:
+                action, char = response
+                if action == RxActions.RX_STRING:
+                    _build_string(char)
+                elif action == RxActions.START_SHUFFLE_MCU:
+                    _use_sbc_config = False
+                    _dbprint("Switching to MCU config settings")
+                    break
+                elif action == RxActions.START_SHUFFLE_SBC:
+                    break
+                elif action == RxActions.RESET:
+                    raise _SystemReset("@ loop for SBC vs MCU setting shuffle start wait")
+
+    if _use_sbc_config:
+        _dbprint("Starting card processing with RasPi/webserver settings")
+        # prep for shuffle
+        target_order = OrderGenerator.generate_order(mcu=False)
+    else:
+        _dbprint("Starting card processing with µC settings")
+        # send start ack
+        uart.tx(TxActions.START_SHUFFLE_MCU)
+        # prep for shuffle
+        target_order = OrderGenerator.generate_order(mcu=True)
 
     # shuffle process
-    target_order = OrderGenerator.generate_order()
     # this should be the index of the NEXT expected.
     # the count the mcu sends should be the number TO BE processed (ie sbc_count==mcu_count)
     _dbprint("Starting card processing")
@@ -130,6 +178,7 @@ if __name__ == '__main__':
     uart = UART(baud_rate=9600)
     # TODO import ground truth image library with cv.populate_ground_truth
     image_fetcher = init_camera()
+    start_webserver(_handle_webserver_config)
 
     while True:
         try:

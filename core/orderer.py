@@ -46,26 +46,38 @@ def _compute_shuffled_deck(card_spec: Dict[Card, int], *, verbose: bool = False)
 
 
 class OrderGenerator(ABC):
-    _impl: Any = None
+    _impl0: Any = None
+    _impl1: Any = None
 
     @staticmethod
-    def reconfigure(key: str, value: str) -> None:
+    def _get(mcu: bool):
+        return OrderGenerator._impl0 if mcu else OrderGenerator._impl1
+
+    @staticmethod
+    def _set(mcu: bool, impl) -> None:
+        if mcu:
+            OrderGenerator._impl0 = impl
+        else:
+            OrderGenerator._impl1 = impl
+
+    @staticmethod
+    def reconfigure(key: str, value: str, *, mcu: bool) -> None:
         if key != "game":
             # noinspection PyProtectedMember
-            OrderGenerator._impl._reconfigure(key, value)
+            OrderGenerator._get(mcu)._reconfigure(key, value)
         else:
             # switch/case for different game handlers
             if value == 'blackjack':
-                OrderGenerator._impl = _BlackJackGenerator()
+                OrderGenerator._set(mcu, _BlackJackGenerator())
             elif value == 'none' or value == 'random' or value == 'shuffle':
-                OrderGenerator._impl = _RandomShuffleGenerator()
+                OrderGenerator._set(mcu, _RandomShuffleGenerator())
             else:
                 assert False, f"Unrecognized game: {value}"
 
     @staticmethod
-    def generate_order() -> Dict[Card, int]:
+    def generate_order(*, mcu: bool) -> Dict[Card, int]:
         # noinspection PyProtectedMember
-        return _compute_shuffled_deck(OrderGenerator._impl._generate_order())
+        return _compute_shuffled_deck(OrderGenerator._get(mcu)._generate_order())
 
     @abstractmethod
     def _generate_fixed_points(self) -> Dict[Card, int]:
