@@ -123,7 +123,26 @@ class _BlackJackGenerator(OrderGenerator):
             assert False, f"Unrecognized config key {key}"
 
     def _generate_fixed_points(self) -> Dict[Card, int]:
-        pass
+        assert self.winners.count(True) <= 4, "Cannot have more than 4 winners!!"
+
+        free_tens = [(rank, suit) for rank in ['10', 'J', 'Q', 'K'] for suit in _suits]
+        free_As = [('A', suit) for suit in _suits]
+        free_else = [(rank, suit) for rank in ["2", "3", "4", "5", "6", "7", "8", "9"] for suit in _suits]
+
+        if self.dealer_wins:
+            dealer_reserved = free_As.pop()
+        else:
+            dealer_reserved = ('9', 'S')
+            free_else.remove(dealer_reserved)  # reserve 9 of spades for dealer loss
+
+        fixed_points = {}
+        for i in range(self.num_players):
+            fixed_points[free_As.pop() if self.winners[i] else free_else.pop()] = i
+        fixed_points[dealer_reserved] = self.num_players
+        for i in range(self.num_players + 1, 2 * self.num_players + 2):
+            fixed_points[free_tens.pop()] = i
+
+        return fixed_points
 
 
 class _RandomShuffleGenerator(OrderGenerator):

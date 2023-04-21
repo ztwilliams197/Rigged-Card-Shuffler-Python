@@ -1,0 +1,4 @@
+52 files with names `{rank}{suit}.npy` within `deck1` directory
+- Holds ground truth images for card recognition (i.e. `AS.npy` for Ace of Spades)
+
+* Can support additional decks by putting in folders named `deck2`, `deck3`, etc.

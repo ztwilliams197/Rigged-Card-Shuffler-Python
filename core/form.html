@@ -7,17 +7,32 @@
 
     <div id="blackjack_conf" style="display:none;">
         <h4>Blackjack Configurations:</h4>
+        <label for="num_players-blackjack">Player Count Selection:</label>
+        <select name="num_players" id="num_players-blackjack">
+            <option value="1">1 Player</option>
+            <option value="2">2 Players</option>
+            <option value="3">3 Players</option>
+            <option value="4">4 Players</option>
+        </select>
+
         <p>Winner Selection:</p>
-        <input type="radio" id="dealer_win" name="winner" value="dealer">
-        <label for="dealer_win">Dealer wins</label><br>
-        <input type="radio" id="table_win" name="winner" value="table">
-        <label for="table_win">Table wins</label><br>
+        <input type="radio" id="dealer_win-blackjack" name="winner" value="dealer">
+        <label for="dealer_win-blackjack">Dealer wins</label><br>
+        <input type="radio" id="table_win-blackjack" name="winner" value="table">
+        <label for="table_win-blackjack">Table wins</label><br>
         <em>Individual wins currently not supported.</em><br>
     </div>
 
     <div id="misc_conf" style="display:none;">
         <h4>Misc. Shuffle Configurations:</h4>
-        <em>Card/position configuration currently not supported.</em><br>
+        <div id="misc-card-specs"></div>
+<!--        <label for="num_players">Card </label>-->
+<!--        <select name="num_players" id="num_players">-->
+<!--            <option value="1">1 Player</option>-->
+<!--            <option value="2">2 Players</option>-->
+<!--            <option value="3">3 Players</option>-->
+<!--            <option value="4">4 Players</option>-->
+<!--        </select>-->
     </div>
 
     <br>
@@ -30,5 +45,8 @@
             document.getElementById(id_to_enable).style.display = 'inline';
             document.getElementById("submit").style.display = 'inline';
         }
+
+        const misc_conf_div = document.getElementById("misc-card-specs");
+        // TODO add dropdown contents of misc config area
     </script>
 </form>
