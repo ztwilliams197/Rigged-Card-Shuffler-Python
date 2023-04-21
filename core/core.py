@@ -1,4 +1,5 @@
 import sys
+from time import sleep
 
 from uart import UART, TxActions, RxActions
 import identify_card as cv
@@ -44,6 +45,9 @@ def _exec_logic(uart: UART, verbose_cv: bool) -> None:
             action, _ = response
             if action == RxActions.RESET:
                 break
+    sleep(0.5)
+    while uart.rx() is not None:
+        continue  # clear all pending RESET transmissions -- prevents "boot-loop"
     _dbprint("Handshake completed")
 
     # get user settings
