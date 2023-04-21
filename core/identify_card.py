@@ -209,7 +209,7 @@ def _sample_img_at_bbox(img: Image, bbox: BoundingBox[float], mapper: Coordinate
     x1, y1, x2, y2 = bbox
     x1, y1 = mapper(x1, y1)
     x2, y2 = mapper(x2, y2)
-    xy_samples = np.mgrid[x1:x2:nsc, y1:y2:nsc].reshape(2, -1)._T
+    xy_samples = np.mgrid[x1:x2:nsc, y1:y2:nsc].reshape(2, -1).T
 
     return interp(xy_samples) / 255
 
