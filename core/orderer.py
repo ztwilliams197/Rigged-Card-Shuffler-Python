@@ -114,9 +114,8 @@ class _BlackJackGenerator(OrderGenerator):
                 self.dealer_wins = False
                 self.winners = [True] * self.num_players
             else:
-                # value = 'player #'
-                assert value[:7] == "player ", "Invalid winner config message format"
-                player = int(value[7:])
+                # value = player #
+                player = int(value)
                 assert 0 <= player < self.num_players, "Invalid player number for winner config"
                 self.dealer_wins = False
                 self.winners[player] = True

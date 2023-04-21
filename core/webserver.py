@@ -1,6 +1,8 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import cgi
 from typing import List, Callable, Optional
+
+with open("form.html", 'r') as _f:
+    _form_html = _f.readlines()
 
 
 class _HTTPHandler(BaseHTTPRequestHandler):
@@ -10,49 +12,48 @@ class _HTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(bytes(line, "utf-8"))
 
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        # TODO replace GET site with form
-        # self.write_body("<html><head><title>https://pythonbasics.org</title></head>")
-        # self.write_body(f"<p>Request: {self.path}</p>")
-        # self.write_body("<body>")
-        # self.write_body("<p>This is an example web server.</p>")
-        # self.write_body("</body></html>")
+        if '?' not in self.path:
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.write_body("<html><head><title>\"Rigged\" Card Shuffler -- WebServer Configurator</title></head>")
+            self.write_body("<body>")
+            for line in _form_html:
+                self.write_body(line)
+            self.write_body("</body></html>")
+        else:
+            self.send_response(200)
+            self.end_headers()
 
-    def do_POST(self):
-        # Parse the form data posted
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers={k: str(v) for k, v in self.headers.items()},
-            environ={'REQUEST_METHOD': 'POST', 'CONTENT_TYPE': self.headers['Content-Type']}
-        )
+            # site header
+            self.write_body(f"Client: {self.client_address[0]}:{self.client_address[1]}\n")
+            self.write_body(f"User-agent: {self.headers['user-agent']}\n")
+            self.write_body(f"Path: {self.path}\n")
+            self.write_body("\n")
 
-        # Begin the response
-        self.send_response(200)
-        self.end_headers()
-        self.write_body(f"Client: {self.client_address}\n")
-        self.write_body(f"User-agent: {self.headers['user-agent']}\n")
-        self.write_body(f"Path: {self.path}\n")
-        self.write_body("Form data:\n")
+            # compute configs
+            configs = [conf.split('=') for conf in self.path.split('?')[1].split('&')]
+            config_list = [f"{key}:{value}" for key, value in configs]
 
-        # Echo back information about what was posted in the form
-        for field in form.keys():
-            field_item = form[field]
-            if field_item.filename:
-                # The field contains an uploaded file
-                file_data = field_item.file.read()
-                file_len = len(file_data)
-                del file_data
-                self.write_body(f"\tUploaded {field} as \"{field_item.filename}\" ({file_len} bytes)\n")
-            else:
-                # Regular form value
-                self.write_body(f"\t{field}={field_item.value}\n")
-        if _HTTPHandler.config_handler is not None:
-            config = [f"{field}:{form[field].value}" for field in form.keys() if not form[field].filename]
-            _HTTPHandler.config_handler(config)
+            # echo selected settings
+            self.write_body("Form data:\n")
+            for cfg in config_list:
+                self.write_body(f"{cfg}\n")
+            self.write_body("\n")
+
+            # echo additional info & start shuffle
+            self.write_body("Starting shuffle....\n")
+
+            if _HTTPHandler.config_handler is not None:
+                _HTTPHandler.config_handler(config_list)
 
 
-def start_webserver(config_handler: Callable[[List[str]], None]) -> None:
+def start_webserver(config_handler: Callable[[List[str]], None], *, verbose: bool = False) -> None:
     _HTTPHandler.config_handler = config_handler
+    if verbose:
+        print("Starting webserver running @ http://127.0.0.1:8080")
     HTTPServer(('127.0.0.1', 8080), _HTTPHandler).serve_forever()
+
+
+if __name__ == '__main__':
+    start_webserver(print, verbose=True)

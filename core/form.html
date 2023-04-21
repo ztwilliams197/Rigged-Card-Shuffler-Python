@@ -1,0 +1,34 @@
+<form>
+    <h4>Game Selection:</h4>
+    <input type="radio" id="blackjack" name="game" value="blackjack" onclick="on_game_select('blackjack_conf')">
+    <label for="blackjack">Blackjack</label><br>
+    <input type="radio" id="shuffle" name="game" value="none" onclick="on_game_select('misc_conf')">
+    <label for="shuffle">None/Random Shuffle</label><br>
+
+    <div id="blackjack_conf" style="display:none;">
+        <h4>Blackjack Configurations:</h4>
+        <p>Winner Selection:</p>
+        <input type="radio" id="dealer_win" name="winner" value="dealer">
+        <label for="dealer_win">Dealer wins</label><br>
+        <input type="radio" id="table_win" name="winner" value="table">
+        <label for="table_win">Table wins</label><br>
+        <em>Individual wins currently not supported.</em><br>
+    </div>
+
+    <div id="misc_conf" style="display:none;">
+        <h4>Misc. Shuffle Configurations:</h4>
+        <em>Card/position configuration currently not supported.</em><br>
+    </div>
+
+    <br>
+    <input type="submit" id="submit" value="Submit" style="display:none;">
+
+    <script>
+        function on_game_select(id_to_enable) {
+            document.getElementById("blackjack_conf").style.display = 'none';
+            document.getElementById("misc_conf").style.display = 'none';
+            document.getElementById(id_to_enable).style.display = 'inline';
+            document.getElementById("submit").style.display = 'inline';
+        }
+    </script>
+</form>
