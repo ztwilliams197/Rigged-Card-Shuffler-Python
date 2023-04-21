@@ -4,7 +4,7 @@ import random
 
 from identify_card import Card
 
-_ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "X", "J", "Q", "K"]
+_ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
 _suits = ["C", "H", "S", "D"]
 
 _T = TypeVar('_T')
@@ -122,10 +122,10 @@ class _RandomShuffleGenerator(OrderGenerator):
         self.fixed_points = {}
 
     def _reconfigure(self, key: str, value: str) -> None:
-        # (R,S)
-        rank, suit = key.split(',')
-        card = rank[1:], suit[:-1]
-        self.fixed_points[card] = int(value)
+        card = int(key)
+        rank = _ranks[card // 10]
+        suit = _suits[card % 10]
+        self.fixed_points[rank, suit] = int(value)
         # TODO error checking
 
     def _generate_fixed_points(self) -> Dict[Card, int]:
