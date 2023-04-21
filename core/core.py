@@ -57,7 +57,7 @@ def _populate_ground_truth_images(*, num_decks: int, verbose: bool = False) -> N
     for rank in ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]:
         for suit in ["C", "H", "S", "D"]:
             cards_dict[rank, suit] = [
-                np.load(f"./ground_truth/deck{deck}/{rank}{suit}.npy") for deck in range(num_decks)
+                np.load(f"./ground_truth/deck{deck + 1}/{rank}{suit}.npy") for deck in range(num_decks)
             ]
 
     cv.populate_ground_truth(cards_dict, verbose=verbose)
@@ -192,7 +192,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     uart = UART(baud_rate=9600)
-    _populate_ground_truth_images(num_decks=1, verbose=verbose_cv)
+    # _populate_ground_truth_images(num_decks=1, verbose=verbose_cv)
     image_fetcher = init_camera()
     Thread(target=lambda: start_webserver(_handle_webserver_config)).start()  # start webserver in new thread
 
