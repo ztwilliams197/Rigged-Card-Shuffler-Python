@@ -27,8 +27,14 @@ def init_camera() -> Callable[[], Image]:
 
 
 if __name__ == '__main__':
-    print("Usage: <script> <arg1=directory of file> <arg2=card identity as concat string: rank~suit>")
+    print("Usage: <script> <arg1=directory of file>")
+    print("Suggested usage: <script> ./ground_truth/deck1")
+    print()
+
     import sys
 
-    image = init_camera()()
-    np.save(f"{sys.argv[1]}/{sys.argv[2]}.npy", image)
+    _dir = sys.argv[1]
+    capture_image = init_camera()
+
+    while True:
+        np.save(f"{_dir}/{input('Identity of the current scanned card: ')}.npy", capture_image())
