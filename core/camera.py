@@ -3,6 +3,7 @@ from typing import Callable, Tuple, Final
 
 from picamera import PiCamera
 import numpy as np
+import cv2
 
 from identify_card import Image
 
@@ -20,8 +21,11 @@ def init_camera() -> Callable[[], Image]:
     output = np.empty((y, x, 3), dtype=np.uint8)
 
     def _capture_image() -> Image:
-        camera.capture(output, 'yuv')
-        return output[x1:x2, y1:y2]
+        nonlocal output
+        camera.capture(output, 'rgb')
+        # noinspection PyUnresolvedReferences
+        output = cv2.cvtColor(output, cv2.COLOR_RGB2YUV)
+        return output[x1:x2, y1:y2, :]
 
     return _capture_image
 
