@@ -176,27 +176,28 @@ def _normalize_bboxes(bboxes: List[BoundingBox[int]], *, verbose: bool = False) 
     return sorted(bboxes, key=lambda bbox: bbox.area), lambda x, y: (mx * x + dx, my * y + dy)
 
 
-def populate_ground_truth(images: Dict[Card, Image], *, verbose: bool = False) -> None:
+def populate_ground_truth(images: Dict[Card, List[Image]], *, verbose: bool = False) -> None:
     cards, img_data_list = _GROUND_TRUTH_IMAGES
     cards.clear()
     img_data_list.clear()
 
     if verbose:
         print("---------------------------------")
-    for card, img in images.items():
+    for card, images in images.items():
         if verbose:
             print(f"Beginning processing for card={card}")
 
-        # process image
-        edges, bboxes = preprocess_image(img, verbose=verbose)
-        bbox_norm, mapper = _normalize_bboxes(bboxes, verbose=verbose)
-        img_data: ImageComparisonData = edges, bbox_norm, mapper
-        # save data
-        cards.append(card)
-        img_data_list.append(img_data)
+        for img in images:
+            # process image
+            edges, bboxes = preprocess_image(img, verbose=verbose)
+            bbox_norm, mapper = _normalize_bboxes(bboxes, verbose=verbose)
+            img_data: ImageComparisonData = edges, bbox_norm, mapper
+            # save data
+            cards.append(card)
+            img_data_list.append(img_data)
 
-        if verbose:
-            print(f"Num bboxes for card={card} == {len(bbox_norm)}")
+            if verbose:
+                print(f"Num bboxes for card={card} == {len(bbox_norm)}")
             print("---------------------------------")
 
 
@@ -208,7 +209,7 @@ def _sample_img_at_bbox(img: Image, bbox: BoundingBox[float], mapper: Coordinate
     x1, y1, x2, y2 = bbox
     x1, y1 = mapper(x1, y1)
     x2, y2 = mapper(x2, y2)
-    xy_samples = np.mgrid[x1:x2:nsc, y1:y2:nsc].reshape(2, -1).T
+    xy_samples = np.mgrid[x1:x2:nsc, y1:y2:nsc].reshape(2, -1)._T
 
     return interp(xy_samples) / 255
 

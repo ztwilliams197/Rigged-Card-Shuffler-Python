@@ -1,6 +1,8 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import List, Callable, Optional
 
+_IP, _PORT = '128.46.96.236', 80
+
 with open("form.html", 'r') as _f:
     _form_html = _f.readlines()
 
@@ -51,8 +53,8 @@ class _HTTPHandler(BaseHTTPRequestHandler):
 def start_webserver(config_handler: Callable[[List[str]], None], *, verbose: bool = False) -> None:
     _HTTPHandler.config_handler = config_handler
     if verbose:
-        print("Starting webserver running @ http://127.0.0.1:8080")
-    HTTPServer(('127.0.0.1', 8080), _HTTPHandler).serve_forever()
+        print(f"Starting webserver running @ http://{_IP}:{_PORT}")
+    HTTPServer((_IP, _PORT), _HTTPHandler).serve_forever()
 
 
 if __name__ == '__main__':

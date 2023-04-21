@@ -1,10 +1,12 @@
 import sys
 from time import sleep
-from typing import Callable, List
+from typing import Callable, List, Dict
+from threading import Thread
+import numpy as np
 
 from uart import UART, TxActions, RxActions
 import identify_card as cv
-from identify_card import Image
+from identify_card import Image, Card
 from orderer import OrderGenerator
 from camera import init_camera
 from webserver import start_webserver
@@ -45,6 +47,20 @@ def _handle_webserver_config(configs: List[str]) -> None:
         _use_sbc_config = True
     except Exception:
         pass
+
+
+def _populate_ground_truth_images(*, num_decks: int, verbose: bool = False) -> None:
+    _ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+    _suits = ["C", "H", "S", "D"]
+
+    cards_dict: Dict[Card, List[Image]] = {}
+    for rank in ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]:
+        for suit in ["C", "H", "S", "D"]:
+            cards_dict[rank, suit] = [
+                np.load(f"./ground_truth/deck{deck}/{rank}{suit}.npy") for deck in range(num_decks)
+            ]
+
+    cv.populate_ground_truth(cards_dict, verbose=verbose)
 
 
 class _SystemReset(Exception):
@@ -176,9 +192,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     uart = UART(baud_rate=9600)
-    # TODO import ground truth image library with cv.populate_ground_truth
+    _populate_ground_truth_images(num_decks=1, verbose=verbose_cv)
     image_fetcher = init_camera()
-    start_webserver(_handle_webserver_config)
+    Thread(target=lambda: start_webserver(_handle_webserver_config)).start()  # start webserver in new thread
 
     while True:
         try:
