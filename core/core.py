@@ -75,6 +75,8 @@ def _exec_logic(uart: UART, image_fetcher: Callable[[], Image], verbose_cv: bool
     # TODO decide whether to reset config trackers in OrderGenerator
 
     _dbprint("Starting execution loop")
+    sleep(10)  # fixes potential boot loop by allowing micro to init first
+    # very hacky (^^^) -- TODO fix micro handshake to prevent boot loop...
 
     # wake/reset handshake
     _dbprint("Starting Wake/RESET handshake")
@@ -192,7 +194,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     uart = UART(baud_rate=9600)
-    # _populate_ground_truth_images(num_decks=1, verbose=verbose_cv)
+    _populate_ground_truth_images(num_decks=1, verbose=verbose_cv)
     image_fetcher = init_camera()
     Thread(target=lambda: start_webserver(_handle_webserver_config)).start()  # start webserver in new thread
 
