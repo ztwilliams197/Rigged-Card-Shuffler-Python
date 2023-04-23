@@ -77,7 +77,7 @@ class OrderGenerator(ABC):
     @staticmethod
     def generate_order(*, mcu: bool) -> Dict[Card, int]:
         # noinspection PyProtectedMember
-        return _compute_shuffled_deck(OrderGenerator._get(mcu)._generate_order())
+        return _compute_shuffled_deck(OrderGenerator._get(mcu)._generate_fixed_points())
 
     @abstractmethod
     def _generate_fixed_points(self) -> Dict[Card, int]:
