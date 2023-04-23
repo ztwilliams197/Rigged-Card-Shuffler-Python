@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import List, Callable, Optional
 
-_IP, _PORT = '128.46.96.236', 80
+_IP, _PORT = '128.46.96.236', 8080
 
 with open("form.html", 'r') as _f:
     _form_html = _f.readlines()
